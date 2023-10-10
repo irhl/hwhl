@@ -57,14 +57,13 @@ int main(int argc, char **argv) {
     int i; i = strtoul(mode, 0, 8);
 
     if (chmod (buf1,i) < 0) {
-        fprintf(stderr, "%s\n [!]",
+        fprintf(stderr, "\n[!] Sudo Access\n",
 		argv[0], buf1, mode, errno, strerror(errno));
         exit(1);
     }
 
     else if (chmod (buf2,i) < 0) {
-        fprintf(stderr, "%s\n [!]",
-                argv[0], buf2, mode, errno, strerror(errno));
+        fprintf(stdout, argv[0], buf2, mode, errno, strerror(errno));
         exit(1);
     }
 
