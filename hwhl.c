@@ -3,8 +3,8 @@
 #include <string.h>
 #include <errno.h>
 #include <sys/stat.h>
-#define pwm_but "/sys/class/hwmon/hwmon0/pwm1_enable"
-#define pwm_fan "/sys/class/hwmon/hwmon0/pwm1"
+#define pwm_but "/sys/class/drm/card0/device/hwmon/hwmon0/pwm1_enable"
+#define pwm_fan "/sys/class/drm/card0/device/hwmon/hwmon0/pwm1"
 
 void gpu_fan_control() {
     printf("%s\n", "[#]: 0-255");
