@@ -5,7 +5,7 @@ clean:
 	$(RM) hwhl
 
 install:
-	$(CC) hwhl.c -o /usr/local/bin/hwhl
+	$(CC) hwhl.c -o /bin/hwhl
 
 uninstall:
-	$(RM) /usr/local/bin/hwhl
+	$(RM) /bin/hwhl
