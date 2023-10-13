@@ -1,93 +1,81 @@
 #include <stdio.h>
+#include <signal.h>
 #include <stdlib.h>
-#include <string.h>
-#include <errno.h>
 #include <sys/stat.h>
-#define pwm_but "/sys/class/drm/card0/device/hwmon/hwmon0/pwm1_enable"
-#define pwm_fan "/sys/class/drm/card0/device/hwmon/hwmon0/pwm1"
 
 void gpu_fan_control() {
-    printf("%s\n", "[#]: 0-255");
-    printf("\n%s", "[?]: ");
+    const char *pwms = "/sys/class/drm/card0/device/hwmon/hwmon0/pwm1_enable";
+    const char *pwmf = "/sys/class/drm/card0/device/hwmon/hwmon0/pwm1";
 
+    /* set permissions -rw-r--r-- */
+    if (chmod(pwms, 0644) < 0 || chmod(pwmf, 0644) < 0) {
+        perror("[xx]");
+        return;
+    }
+
+    /* declare val var, val stores values */
     int val;
-    scanf("%d", &val);
+    printf("[0-255]: ");
 
-    FILE *fd;
-
-    fd = fopen(pwm_but, "w");
-    fprintf(fd, "1");
-
-    fd = fopen(pwm_fan, "w");
-    fprintf(fd, "%d", val);
-
-    fclose(fd);
-}
-
-void gpu_fan_start() {
-    printf("%s\n", "Brrrrff");
-
-    FILE *fd;
-
-    fd = fopen(pwm_but, "w");
-    fprintf(fd, "1");
-
-    fd = fopen(pwm_fan, "w");
-    fprintf(fd, "80");
-
-    fclose(fd);
-}
-
-void setup_screen() {
-    /* '\e[1r': 0:0
-       '\e[2J': clear screen */
-    char* x = "\e[1r\e[2J";
-
-    printf("%s", x);
-    printf("%s\n", "[1] GPU: Fan Start");
-    printf("%s\n", "[2] GPU: Fan Control");
-    printf("\n%s", "[?]: ");
-}
-
-int main(int argc, char **argv) {
-    char mode[] = "664";
-    char buf1[100] = pwm_but;
-    char buf2[100] = pwm_fan;
-
-    int i; i = strtoul(mode, 0, 8);
-
-    if (chmod (buf1,i) < 0) {
-        fprintf(stderr, "\n[!] Sudo Access\n",
-		argv[0], buf1, mode, errno, strerror(errno));
-        exit(1);
+    /* prompt user input & error input handling,
+       an error is triggered if the value is out of range
+    */
+    if (scanf("%d", &val) != 1 || val < 0 || val > 255) {
+        printf("[x]\n");
+        return;
     }
 
-    else if (chmod (buf2,i) < 0) {
-        fprintf(stdout, argv[0], buf2, mode, errno, strerror(errno));
-        exit(1);
-    }
+    /* submit pwm values directly to func
+       without error handling
+    */
+    FILE *fi_start = fopen(pwms, "w");
+    fprintf(fi_start, "1");
+    fclose(fi_start);
 
-    setup_screen();
+    FILE *fi_fan = fopen(pwmf, "w");
+    fprintf(fi_fan, "%d", val);
+    fclose(fi_fan);
+
+    /* restore permissions -r--r--r-- */
+    if (chmod(pwms, 0444) < 0 || chmod(pwmf, 0444) < 0) {
+        perror("[xx]");
+        return;
+    }
+}
+
+void scrsetup() {
+    printf("\e[1r\e[2J");
+}
+
+void scrreset(int sig) {
+    printf("%s", "\e[1r\e[2J");
+    exit(0);
+}
+
+int main() {
+    signal(SIGINT, scrreset);
+    signal(SIGWINCH, scrreset); // do not shake, it's not milk tea
+
+    scrsetup();
 
     char options;
-    do { scanf("%c", &options);
+    do {
+        printf("%s\n", "[1] GPU: Set Fan Speed");
+        printf("\n%s", "[?]: ");
+        scanf(" %c", &options);
 
-    switch(options) {
-        case '1':
-            gpu_fan_start();
-            break;
+        printf("\n");
 
-        case '2':
-            gpu_fan_control();
-            break;
+        switch (options) {
+            case '1':
+                gpu_fan_control();
+                break;
 
-        default:
-            setup_screen();
-	    break;
+            default:
+                scrsetup();
+                break;
         }
-    }
-
-    while(options<'1' || options>'6');
+    } while (options < '1' || options > '2');
 
     return 0;
 }
