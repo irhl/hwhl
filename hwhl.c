@@ -1,14 +1,39 @@
 #include <stdio.h>
-#include <signal.h>
 #include <stdlib.h>
+#include <signal.h>
 #include <sys/stat.h>
+#include <unistd.h>
 
-void gpu_fan_control() {
-    const char *pwms = "/sys/class/drm/card0/device/hwmon/hwmon0/pwm1_enable";
-    const char *pwmf = "/sys/class/drm/card0/device/hwmon/hwmon0/pwm1";
+void tempGPU() {
+    const char *pwmr = "/sys/class/drm/card0/device/hwmon/hwmon0/temp1_input";
+
+    // restore defaults
+    signal(SIGINT, SIG_DFL);
+
+    while (1) {
+        FILE *f3 = fopen(pwmr, "r");
+
+        if (f3) {
+            char buffer[16];
+            if (fscanf(f3, "%15s", buffer) == 1) {
+                printf("\033[1r\033[2J");
+                printf("[*]: %d°C\n", atoi(buffer) / 1000);
+            } else {
+                perror("[xx]");
+                break;
+            }
+            fclose(f3);
+        }
+        usleep(4000000);
+    }
+}
+
+void fancGPU() {
+    const char *pwme = "/sys/class/drm/card0/device/hwmon/hwmon0/pwm1_enable";
+    const char *pwm1 = "/sys/class/drm/card0/device/hwmon/hwmon0/pwm1";
 
     /* set permissions -rw-r--r-- */
-    if (chmod(pwms, 0644) < 0 || chmod(pwmf, 0644) < 0) {
+    if (chmod(pwme, 0644) < 0 || chmod(pwm1, 0644) < 0) {
         perror("[xx]");
         return;
     }
@@ -25,54 +50,43 @@ void gpu_fan_control() {
         return;
     }
 
-    /* submit pwm values directly to func
+    /* submit pwm values directly to fn
        without error handling
     */
-    FILE *fi_start = fopen(pwms, "w");
-    fprintf(fi_start, "1");
-    fclose(fi_start);
+    FILE *f1 = fopen(pwme, "w");
+    FILE *f2 = fopen(pwm1, "w");
 
-    FILE *fi_fan = fopen(pwmf, "w");
-    fprintf(fi_fan, "%d", val);
-    fclose(fi_fan);
+    fprintf(f1, "1");
+    fclose(f1);
+
+    fprintf(f2, "%d", val);
+    fclose(f2);
 
     /* restore permissions -r--r--r-- */
-    if (chmod(pwms, 0444) < 0 || chmod(pwmf, 0444) < 0) {
+    if (chmod(pwme, 0444) < 0 || chmod(pwm1, 0444) < 0) {
         perror("[xx]");
         return;
     }
 }
 
-void scrsetup() {
-    printf("\e[1r\e[2J");
-}
-
-void scrreset(int sig) {
-    printf("%s", "\e[1r\e[2J");
-    exit(0);
-}
-
 int main() {
-    signal(SIGINT, scrreset);
-    signal(SIGWINCH, scrreset); // do not shake, it's not milk tea
-
-    scrsetup();
-
     char options;
     do {
-        printf("%s\n", "[1] GPU: Set Fan Speed");
-        printf("\n%s", "[?]: ");
-        scanf(" %c", &options);
+        printf("\033[1r\033[2J");
+        printf("%s\n", "[1] GPU: Fan Control");
+	printf("\n%s", "[?]: ");
 
-        printf("\n");
+	scanf(" %c", &options);
+	printf("\n");
 
         switch (options) {
             case '1':
-                gpu_fan_control();
+                fancGPU();
+                tempGPU();
                 break;
 
             default:
-                scrsetup();
+                printf("\033[1r\033[2J");
                 break;
         }
     } while (options < '1' || options > '2');
