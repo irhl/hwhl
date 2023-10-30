@@ -1,75 +1,91 @@
 #include <stdio.h>
 #include <stdlib.h>
-#include <sys/stat.h>
 #include <signal.h>
+#include <sys/stat.h>
 #include <unistd.h>
 
 void tempGPU() {
-    const char *pwmr = "/sys/class/drm/card0/device/hwmon/hwmon0/temp1_input";
+    const char *path[] = {
+        "/sys/class/drm/card0/device/hwmon/hwmon0/temp1_input",
+        "/sys/class/drm/card0/device/hwmon/hwmon0/temp2_input",
+        "/sys/class/drm/card0/device/hwmon/hwmon0/temp3_input",
+    };
 
-    /* restore defaults */
+    const char *label[] = {
+        "gpu_edge", "gpu_junk", "gpu_mem",
+    };
+
     signal(SIGINT, SIG_DFL);
-    printf("\n");
 
     while (1) {
-        FILE *f3 = fopen(pwmr, "r");
+        int val[3];
 
-        if (f3) {
-            int val;
-            if (fscanf(f3, "%d", &val) == 1) {
-                printf("\r[*]: %d°C ", val / 1000);
-                fflush(stdout);
-            } else {
-                perror("[xx]");
-                break;
+        for (int i = 0; i < 3; i++) {
+            FILE *file = fopen(path[i], "r");
+
+            if (file) {
+                if (fscanf(file, "%d", &val[i]) != 1) {
+                    perror("[xx]");
+                    exit(1);
+                }
+                fclose(file);
             }
-            fclose(f3);
         }
-	sleep(4);
+
+	printf("\033[2J\033[1r");
+
+        for (int i = 0; i < 3; i++) {
+            printf("%-12s %d°C\n", label[i], val[i] / 1000);
+        }
+
+        fflush(stdout);
+        sleep(4);
     }
 }
 
 void fancGPU() {
-    const char *pwme = "/sys/class/drm/card0/device/hwmon/hwmon0/pwm1_enable";
-    const char *pwm1 = "/sys/class/drm/card0/device/hwmon/hwmon0/pwm1";
-
-    /* set permissions -rw-r--r-- */
-    if (chmod(pwme, 0644) < 0 || chmod(pwm1, 0644) < 0) {
-        perror("[xx]");
-        return;
-    }
+    const char *path[] = {
+        "/sys/class/drm/card0/device/hwmon/hwmon0/pwm1_enable",
+        "/sys/class/drm/card0/device/hwmon/hwmon0/pwm1",
+    };
 
     printf("[0-255]: ");
+
     int val;
 
-    /* prompt user input & error input handling,
-       an error triggers if the value is out of range */
     if (scanf("%d", &val) != 1 || val < 0 || val > 255) {
         printf("[x]\n");
-        return;
+        exit(1);
     }
 
-    /* submit pwm values directly to function
-       without any proper error handling */
-    FILE *f1 = fopen(pwme, "w");
-    FILE *f2 = fopen(pwm1, "w");
+    for (int i = 0; i < 2; i++) {
+        if (chmod(path[i], 0644) < 0) {
+            perror("[xx]");
+            exit(1);
+        }
 
-    fprintf(f1, "1");
-    fclose(f1);
+        /* submit pwm values directly to function
+           without any proper error handling */
+        FILE *file = fopen(path[i], "w");
 
-    fprintf(f2, "%d", val);
-    fclose(f2);
+        if (i == 0) {
+            fprintf(file, "1");
+        } else {
+            fprintf(file, "%d", val);
+        }
 
-    /* restore permissions -r--r--r-- */
-    if (chmod(pwme, 0444) < 0 || chmod(pwm1, 0444) < 0) {
-        perror("[xx]");
-        return;
+        fclose(file);
+
+        chmod(path[i], 0444);
+
+	tempGPU();
     }
 }
 
 int main() {
-    printf("\033[1r\033[2J");
+    printf("\033[2J\033[1r");
     printf("%s\n", "[1] GPU: Fan Control");
+    printf("%s\n", "[2] GPU: Fan Monitor");
     printf("\n%s", "[?]: ");
 
     char options;
@@ -80,11 +96,13 @@ int main() {
         switch (options) {
             case '1':
                 fancGPU();
+                break;
+            case '2':
                 tempGPU();
                 break;
 
             default:
-                printf("\033[1r\033[2J");
+                printf("\033[2J\033[1r");
                 break;
         }
     } while (options < '1' || options > '2');
