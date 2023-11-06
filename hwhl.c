@@ -77,8 +77,6 @@ void fancGPU() {
         fclose(file);
 
         chmod(path[i], 0444);
-
-	tempGPU();
     }
 }
 
