@@ -29,16 +29,25 @@ void tempGPU() {
                     exit(1);
                 }
                 fclose(file);
+
+                val[i] /= 1000;
             }
         }
 
 	printf("\033[2J\033[1r");
 
         for (int i = 0; i < 3; i++) {
-            printf("%-12s %d°C\n", label[i], val[i] / 1000);
+            printf("%-12s %d°C\n", label[i], val[i]);
         }
 
         fflush(stdout);
+
+	/* check for junction temp */
+        if (val[1] >= 85) {
+            system("poweroff");
+	    break;
+        }
+
         sleep(4);
     }
 }
